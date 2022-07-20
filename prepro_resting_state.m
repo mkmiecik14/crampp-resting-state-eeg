@@ -4,7 +4,8 @@
 
 workspace_prep % Prepares workspace (see src/...)
 
-subjs = string({RAW{2:size(RAW,1),1}}); %{'324'}; % Initializes subjects for batch processing (if applicable)
+% Initializes subjects for batch processing (if applicable)
+subjs = string({RAW{2:size(RAW,1),1}}); %{'324'}; 
 visit = 'assessment-visit-1'; % name of the folder for visit number
 
 i=1; % for testing purposes
@@ -64,6 +65,11 @@ for i = 1:length(subjs)
         'changefield',{34 'radius' '0.6278'},...
         'changefield',{34 'theta' '-108'},...
         'setref',{'1:31' 'TP9'});
+    
+    % Removes Photo channel and EOG ----
+    % EOG is removed because it was recorded with a different reference
+    % than the cap electrodes and cannot be used in any meaningful analysis
+    EEG = pop_select(EEG, 'nochannel',{'Photo', 'EOG'});
 
     % Re-referencing ----
     % Per: https://sccn.ucsd.edu/wiki/I.4:_Preprocessing_Tools
@@ -84,31 +90,36 @@ for i = 1:length(subjs)
         'datachan',{0})); 
 
     % Next compute linked average mastoid
-    EEG = pop_reref(EEG, [20 34] ,'keepref','on');
-
-    % Removes Photo channel and EOG ----
-    % EOG is removed because it was recorded with a different reference
-    % than the cap electrodes and cannot be used in any meaningful analysis
-    EEG = pop_select(EEG, 'nochannel',{'Photo', 'EOG'});
+    EEG = pop_reref(EEG, [20 32] ,'keepref','off');
 
     % Downsamples to 256Hz
-    EEG = pop_resample( EEG, 256);
+    EEG = pop_resample(EEG, 256);
 
     % Removing DC offset by subtracting the mean signal from each electrode
-    EEG = pop_rmbase( EEG, [],[]);
+    EEG = pop_rmbase(EEG, [], []);
     
-    % Highpass filter at 1Hz (-6dB @ 1Hz, 425 point highpass, 2Hz transition band width)
-    EEG = pop_eegfiltnew(EEG, 'locutoff',2,'plotfreqz',0);
-    [ALLEEG, EEG, CURRENTSET] = pop_newset(ALLEEG, EEG, 1,'overwrite','on','gui','off');
+    % Highpass filter at 1Hz 
+    % -6dB @ 1Hz, 425 point highpass, 2Hz transition band width
+    EEG = pop_eegfiltnew(EEG, 'locutoff', 2, 'plotfreqz', 0);
 
     % Cleanline ----
     % Removing electrical line noise @ 60 Hz
-    EEG = pop_cleanline(EEG, 'bandwidth',2,'chanlist',[1:32] ,'computepower',1,'linefreqs',60,'normSpectrum',0,'p',0.01,'pad',2,'plotfigures',0,'scanforlines',1,'sigtype','Channels','tau',100,'verb',1,'winsize',4,'winstep',1);
-    [ALLEEG, EEG, CURRENTSET] = pop_newset(ALLEEG, EEG, 1,'setname',this_subj.id,'overwrite','on','gui','off'); 
+    EEG = pop_cleanline(EEG, 'bandwidth', 2, 'chanlist', [1:EEG.nbchan],...
+        'computepower', 1, 'linefreqs', 60, 'normSpectrum', 0, ...
+        'p', 0.01, 'pad', 2, 'plotfigures' , 0, 'scanforlines', 1, ...
+        'sigtype', 'Channels', 'tau', 100, 'verb', 1, 'winsize', ...
+        4,'winstep',1);
+    
+    % renames dataset
+    visit_name = strcat('av', visit(end)); % grabs visit number
+    dataset_name = strcat('rs-', visit_name, '-', num2str(this_ss), '-prepro');
+    EEG = pop_editset(EEG, 'setname', dataset_name, 'run', []);
 
     % Saves out preprocessed data for inspection
-    EEG = eeg_checkset( EEG );
-    EEG = pop_saveset( EEG, 'filename', outname, 'filepath' ,outpath);
+    EEG = eeg_checkset(EEG);
+    EEG = pop_saveset(EEG, 'filename', dataset_name, 'filepath', outpath);
     [ALLEEG, EEG] = eeg_store(ALLEEG, EEG, CURRENTSET);
+    
+    eeglab redraw % redraws to GUI for convenience
 
 end

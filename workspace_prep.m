@@ -7,6 +7,7 @@
 
 % Sets working directory ----
 this_pwd = 'C:\Analysis\crampp-resting-state\';
+cd(this_pwd); % goes there
 
 % Initializations ----
 raw_data_path = fullfile(this_pwd, 'data\'); % path to raw data
