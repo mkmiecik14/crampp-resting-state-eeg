@@ -38,7 +38,7 @@ for i = 1:num_iters
     this_reject = find(EEG.reject.gcompreject);
     EEG = pop_subcomp(EEG, this_reject, 0);
     
-    %eeglab redraw
+    %eeglab redraw    
    
     if csd_switch == 1
     
@@ -100,7 +100,7 @@ for i = 1:num_iters
             % Spectral decomposition here
             [this_spectra(:,:,j), this_freqs(:,:,j)] = spectopo(...
                 this_EEG.data(:,:), ... 
-                0, ... % frames per epoch
+                0, ... % frames per epoch (default 0 = data length)
                 this_EEG.srate, ... % sampling rate
                 'winsize', 2*this_EEG.srate, ... % winsize is 2 seconds
                 'overlap', this_EEG.srate, ... % overlap is 1 second
@@ -129,7 +129,15 @@ for i = 1:num_iters
     % Saving out results ----
     % combines into one variable
     % stimulation results are stored with each index being the
-    % stimulation strength in order: 1, 2, 3, 4, 5
+    % blocks in the following order:
+    % 'S111' - eyes OPEN
+    % 'S102' - eyes CLOSED
+    % 'S103' - eyes CLOSED
+    % 'S114' - eyes OPEN
+    % 'S105' - eyes CLOSED
+    % 'S116' - eyes OPEN
+    % 'S117' - eyes OPEN
+    % 'S108' - eyes CLOSED
     spec_res.spectra   = this_spectra; % 3D mat of spectra
     spec_res.freqs     = this_freqs;   % 3D mat of freqs bins
 

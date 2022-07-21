@@ -59,3 +59,5 @@ for i = 1:num_iters
     EEG = pop_saveset(EEG, 'filename', outname, 'filepath', outpath);
     
 end
+
+eeglab redraw
