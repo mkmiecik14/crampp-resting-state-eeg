@@ -44,6 +44,13 @@ triggers <-
   )
 
 # Extracting and tidying spectral results ----
+
+# defining frequency bands (for later)
+delta <- seq(.5, 4, .5)
+theta <- seq(4, 8, .5)
+alpha <- seq(8, 13, .5)
+beta <- seq(13, 30, .5)
+
 # Each participant has:
 # 30 rows (electrodes w/o ref) * 257 (frequencies) * 8 (rs blocks)
 psd_res <-
@@ -64,8 +71,18 @@ psd_res <-
   left_join(., subjs %>% select(ss_i, ss), by = "ss_i") %>% # joins with subject numbers
   left_join(., triggers %>% select(block, eyes), by = "block") %>%
   rename(freq = name, psd = value) %>% # renaming
-  select(ss, block, eyes, elec, freq, psd) # reordering + deselecting (ss_i)
-
+  select(ss, block, eyes, elec, freq, psd) %>% # reordering + deselecting (ss_i)
+  # injects frequency band labels here
+  mutate(
+    band = case_when(
+      freq %in% delta ~ "delta",
+      freq %in% theta ~ "theta",
+      freq %in% alpha ~ "alpha",
+      freq %in% beta ~ "beta",
+      TRUE ~ "outside"
+    )
+  )
+  
 # Saving out data ----
 # Spectral results
 save(psd_res, file = "../output/psd-res.rda")
@@ -85,5 +102,9 @@ rm(
   triggers,
   freqs,
   spec_files,
-  subjs
+  subjs,
+  alpha,
+  beta,
+  delta,
+  theta
 )

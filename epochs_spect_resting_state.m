@@ -106,6 +106,9 @@ for i = 1:num_iters
                 'overlap', this_EEG.srate, ... % overlap is 1 second
                 'plot','off'... % toggles plot
                 );
+            
+            % PROBABLY HERE IS A GOOD PLACE FOR Center of Gravity CALC
+            
             % Plots for troubleshooting (if needed)
             if plot_switch == 1
                 figure; pop_spectopo(this_EEG,1,[],'EEG','freq',[4 8 12 25 30],'freqrange',[0 75],'electrodes','on');
