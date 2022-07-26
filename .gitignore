@@ -40,3 +40,6 @@ vignettes/*.pdf
 
 # R Studio Project
 *.Rproj
+
+# MATLAB temp script files
+*.asv

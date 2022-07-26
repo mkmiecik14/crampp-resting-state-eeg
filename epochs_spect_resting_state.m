@@ -11,6 +11,19 @@ visit = 'assessment-visit-1';   % name of the folder for visit number
 csd_switch = 1;                 % 1 == CSD will be computed
 plot_switch = 1;                % 1 == PSD plots will be saved
 
+% For spectral decomposition settings
+wsize = 8; % FFT window size in seconds
+olap = 4; % FFT window overlap in seconds
+
+% For peak alpha frequency (PAF) and center of gravity (COG) calculations
+% see: https://github.com/corcorana/restingIAF/blob/master/tutorial/tutorial.m
+cmin = 3;           % minimum number of channel estimates required for 
+                    % cross-channel averages
+fRange = [1 40];    % spectral range (set to filter passband)
+w = [7.5 13];       % alpha peak search window (Hz); from McClain et al. 2022
+Fw = 23;            % SGF frame width (Fw * freq resoltion = window)
+poly = 5;           % SGF polynomial order (same as described in Corcoran et al., 2017)
+
 for i = 1:num_iters
     
     % Creating variables ----
@@ -64,16 +77,24 @@ for i = 1:num_iters
     end
     
     % Spectral decomposition ----
-    % Epoching ----
+    
+    % Epoching
     % selecting the stimulation blocks (60 second epochs)
     blocks = {'S111' 'S102' 'S103' 'S114' 'S105' 'S116' 'S117' 'S108'};
     blocks_end = {'S211' 'S202' 'S203' 'S214' 'S205' 'S216' 'S217' 'S208'};
     
     % preallocates arrays
-    this_spectra = zeros(EEG.nbchan, EEG.srate+1, length(blocks));
-    this_freqs = zeros(EEG.srate+1, 1, length(blocks));
+    N = EEG.srate*wsize; % number of data points in FFT window
+    poss_freqs = N/2 + 1; % possible frequencies (freq bins = EEG.srate/N)
+    this_spectra = zeros(EEG.nbchan, poss_freqs, length(blocks));
+    this_freqs = zeros(poss_freqs, 1, length(blocks));
+    this_paf = zeros(EEG.nbchan, length(blocks)); % peak alpha freq
+    this_cog = zeros(EEG.nbchan, length(blocks)); % center of gravity
     
-    % TO DO: In order for this script to accomodate rejected epochs, the
+    % grand average PAF and COG (rows are blocks, cols are PAF and COG)
+    this_iaf = zeros(length(blocks), 2); 
+    
+    % In order for this script to accomodate rejected epochs, the
     % epoch start stop must be determined by a 
     % starting trigger (e.g., S111) and its ending e.g., (S211)
     
@@ -96,18 +117,35 @@ for i = 1:num_iters
         
         try % This will run if the block exists
             % Selects blocks (in order)
-            this_EEG = pop_epoch(EEG,blocks(j),this_epoch,'epochinfo', 'yes');
+            this_EEG = pop_epoch(EEG,blocks(j),this_epoch,'epochinfo','yes');
             % Spectral decomposition here
             [this_spectra(:,:,j), this_freqs(:,:,j)] = spectopo(...
                 this_EEG.data(:,:), ... 
                 0, ... % frames per epoch (default 0 = data length)
                 this_EEG.srate, ... % sampling rate
-                'winsize', 2*this_EEG.srate, ... % winsize is 2 seconds
-                'overlap', this_EEG.srate, ... % overlap is 1 second
+                'winsize', wsize*this_EEG.srate, ... % window size
+                'overlap', olap*this_EEG.srate, ... % overlap size
                 'plot','off'... % toggles plot
                 );
             
-            % PROBABLY HERE IS A GOOD PLACE FOR Center of Gravity CALC
+            % Peak alpha frequency (PAF) and center of gravity (COG)
+            [pSum, pChans, f] = restingIAF(...
+                this_EEG.data,... % EEG data
+                this_EEG.nbchan,... % number of channels
+                cmin,... % min number of channels to grand average PAF
+                fRange,... % spectral range
+                this_EEG.srate,... % sampling rate
+                w,... % alpha peak search window
+                Fw,... % window size
+                poly,... % polynomial order
+                'taper', 'hamming',... % type of taper (default)
+                'tlen', N,...% so that window size remains the same as spectral decomp (50% overlap by default)
+                'mdiff', .2); % peak must be 20% larger than surrounding (default)  
+            
+            % fills in preallocated matrices
+            this_paf(:,j) = [pChans.peaks]; % peak alpha freq per chan
+            this_cog(:,j) = [pChans.gravs]; % center of gravity per chan
+            this_iaf(j,:) = [pSum.paf pSum.cog]; %IAF (weighted by Q; see Corcoran et al., 2017)
             
             % Plots for troubleshooting (if needed)
             if plot_switch == 1
@@ -143,6 +181,9 @@ for i = 1:num_iters
     % 'S108' - eyes CLOSED
     spec_res.spectra   = this_spectra; % 3D mat of spectra
     spec_res.freqs     = this_freqs;   % 3D mat of freqs bins
+    spec_res.paf       = this_paf;     % 2D mat of PAF per chan per block
+    spec_res.cog       = this_cog;     % 2D mat of COG per chan per block
+    spec_res.iaf       = this_iaf;     % 2D mat of IAF per block
 
     % Saving out all data ----
     spec_outname = strcat('rs-', visit_name, '-', num2str(this_ss),...
