@@ -6,7 +6,13 @@
 
 source("r-prep.R") # preps R workspace
 
-# Loads data - - - -
+#####################
+#                   #
+# BROADBAND SPECTRA #
+#                   #
+#####################
+
+# Loads data
 load("../output/psd-res.rda")
 
 # collpses across block (subject-wise summary)
@@ -32,9 +38,191 @@ eyes_open_closed_sum <-
 ggplot(eyes_open_closed_sum, aes(freq, M, group = eyes, color = eyes)) +
   geom_line() +
   geom_vline(xintercept = 12, color = rdgy_pal[8], linetype = 2) +
-  coord_cartesian(xlim = c(0, 30), ylim = c(-40, -10)) +
+  coord_cartesian(xlim = c(0, 25), ylim = c(-40, -10)) +
   theme_bw() +
   scale_color_manual(values = c(rdgy_pal[3], rdgy_pal[11])) +
   labs(x = "Frequency", y = "Power Spectral Density (dB)") +
   theme(legend.position = "bottom") +
   facet_wrap(~elec)
+
+########################
+#                      #
+# PEAK ALPHA FREQUENCY #
+#                      #
+########################
+
+load("../output/paf-res.rda") # loads data
+
+ggplot(paf_res, aes(paf, group = block, color = eyes)) +
+  geom_density() +
+  theme_bw() +
+  facet_wrap(~elec)
+
+# subject_wise summary
+paf_ss <- 
+  paf_res %>%
+  filter(complete.cases(.)) %>%
+  group_by(ss, elec, eyes) %>%
+  summarise(m = mean(paf), n = n()) %>%
+  ungroup()
+
+# group-wise summary
+paf_sum <- 
+  paf_ss %>%
+  group_by(elec, eyes) %>%
+  summarise(M = mean(m), SD = sd(m), N = n(), SEM = SD/sqrt(N)) %>%
+  ungroup()
+
+pn <- position_nudge(x = .3)
+pj <- position_jitter(width = .1, height = 0)
+ggplot(paf_sum, aes(eyes, M, fill = eyes)) +
+  geom_point(data = paf_ss, aes(y=m, color = eyes), alpha = 1/2, position = pj) +
+  geom_bar(stat = "identity", width = .2, color = "black", position = pn) +
+  geom_errorbar(aes(ymin=M-SEM, ymax = M+SEM), width = .1, position = pn) +
+  scale_fill_manual(
+    values = c(
+      ghibli_palettes$MononokeLight[4], ghibli_palettes$MononokeLight[6]
+      )
+    ) +
+  scale_color_manual(
+    values = c(
+      ghibli_palettes$MononokeLight[4], ghibli_palettes$MononokeLight[6]
+    )
+  ) +
+  coord_cartesian(ylim = c(7.5, 13)) +
+  labs(x = "Condition", y = "Peak Alpha Frequency", caption = "SEM error bars.") +
+  theme_bw() +
+  facet_wrap(~elec) +
+  theme(legend.position = "none")
+
+#####################
+#                   #
+# CENTER OF GRAVITY #
+#                   #
+#####################
+
+load("../output/cog-res.rda") # loads data
+
+ggplot(cog_res, aes(cog, group = block, color = eyes)) +
+  geom_density() +
+  theme_bw() +
+  coord_cartesian(xlim = c(7.5, 13)) +
+  facet_wrap(~elec)
+
+# subject_wise summary
+cog_ss <- 
+  cog_res %>%
+  filter(complete.cases(.)) %>%
+  group_by(ss, elec, eyes) %>%
+  summarise(m = mean(cog), n = n()) %>%
+  ungroup()
+
+# group-wise summary
+cog_sum <- 
+  cog_ss %>%
+  group_by(elec, eyes) %>%
+  summarise(M = mean(m), SD = sd(m), N = n(), SEM = SD/sqrt(N)) %>%
+  ungroup()
+
+pn <- position_nudge(x = .3)
+pj <- position_jitter(width = .1, height = 0)
+ggplot(cog_sum, aes(eyes, M, fill = eyes)) +
+  geom_point(data = cog_ss, aes(y=m, color = eyes), alpha = 1/2, position = pj) +
+  geom_bar(stat = "identity", width = .2, color = "black", position = pn) +
+  geom_errorbar(aes(ymin=M-SEM, ymax = M+SEM), width = .1, position = pn) +
+  scale_fill_manual(
+    values = c(
+      ghibli_palettes$MononokeLight[4], ghibli_palettes$MononokeLight[6]
+    )
+  ) +
+  scale_color_manual(
+    values = c(
+      ghibli_palettes$MononokeLight[4], ghibli_palettes$MononokeLight[6]
+    )
+  ) +
+  coord_cartesian(ylim = c(7.5, 13)) +
+  labs(x = "Condition", y = "Center of Gravity", caption = "SEM error bars.") +
+  theme_bw() +
+  facet_wrap(~elec) +
+  theme(legend.position = "none")
+
+# Comparing PAF & COG
+
+# combines PAF and COG data
+paf_cog_sum <- 
+  bind_rows(paf_sum %>% mutate(meas = "paf"), cog_sum %>% mutate(meas = "cog"))
+
+pj <- position_jitter(width = .1, height = 0)
+ggplot(paf_cog_sum, aes(eyes, M, fill = meas)) +
+  geom_bar(stat = "identity", width = .4, color = "black", position = position_dodge(.5)) +
+  geom_errorbar(aes(ymin=M-SEM, ymax = M+SEM), width = .1, position = position_dodge(.5)) +
+  scale_fill_manual(
+    values = c(
+      ghibli_palettes$MononokeLight[3], ghibli_palettes$MononokeLight[5]
+    )
+  ) +
+  scale_color_manual(
+    values = c(
+      ghibli_palettes$MononokeLight[3], ghibli_palettes$MononokeLight[5]
+    )
+  ) +
+  coord_cartesian(ylim = c(7.5, 13)) +
+  labs(x = "Condition", y = "Alpha Frequency", caption = "SEM error bars.") +
+  theme_bw() +
+  facet_wrap(~elec) +
+  theme(legend.position = "bottom")
+
+
+##############################
+#                            #
+# INDIVIDUAL ALPHA FREQUENCY #
+#                            #
+##############################
+
+# IAF averages across electrodes that were able to generate a quality peak alpha
+# frequency and center of gravity estimates
+load("../output/iaf-res.rda")
+
+# creates long format
+iaf_res_long <- iaf_res %>% pivot_longer(c(-ss, -block, -eyes))
+
+ggplot(iaf_res_long, aes(value, group = block, color = eyes)) +
+  geom_density() +
+  theme_bw() +
+  coord_cartesian(xlim = c(7.5, 13)) +
+  facet_wrap(~name)
+
+# subject-wise summary
+iaf_res_long_ss <- 
+  iaf_res_long %>% 
+  group_by(ss, eyes, name) %>% 
+  summarise(m = mean(value), n = n()) %>%
+  ungroup()
+
+# sample-wise summary
+iaf_res_long_sum <-
+  iaf_res_long_ss %>%
+  group_by(eyes, name) %>%
+  summarise(M = mean(m), SD = sd(m), N = n(), SEM = SD/sqrt(N)) %>%
+  ungroup()
+
+# plot
+pn <- position_nudge(x = .3)
+pj <- position_jitter(width = .1, height = 0)
+ggplot(iaf_res_long_sum, aes(eyes, M, fill = name)) +
+  geom_bar(stat = "identity", width = .4, color = "black", position = position_dodge(.5)) +
+  geom_errorbar(aes(ymin=M-SEM, ymax = M+SEM), width = .1, position = position_dodge(.5)) +
+  scale_fill_manual(
+    values = c(
+      ghibli_palettes$MononokeLight[3], ghibli_palettes$MononokeLight[5]
+    )
+  ) +
+  scale_color_manual(
+    values = c(
+      ghibli_palettes$MononokeLight[3], ghibli_palettes$MononokeLight[5]
+    )
+  ) +
+  coord_cartesian(ylim = c(7.5, 13)) +
+  labs(x = "Condition", y = "Individual Alpha Frequency", caption = "SEM error bars.") +
+  theme_bw() +
+  theme(legend.position = "bottom")

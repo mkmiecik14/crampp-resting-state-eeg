@@ -111,6 +111,8 @@ for i = 1:num_iters
     % Calculates the duration of each block (in order)
     block_durations = round(end_times - start_times);
     
+    j=1; % for testing purposes
+    
     for j = 1:length(blocks)
         
         this_epoch = [0 block_durations(j)]; % Sets the epoch duration
@@ -147,6 +149,7 @@ for i = 1:num_iters
             this_cog(:,j) = [pChans.gravs]; % center of gravity per chan
             this_iaf(j,:) = [pSum.paf pSum.cog]; %IAF (weighted by Q; see Corcoran et al., 2017)
             
+                      
             % Plots for troubleshooting (if needed)
             if plot_switch == 1
                 figure; pop_spectopo(this_EEG,1,[],'EEG','freq',[4 8 12 25 30],'freqrange',[0 75],'electrodes','on');
@@ -164,8 +167,17 @@ for i = 1:num_iters
             this_freqs(:,:,j) = NaN; % fills with missing values
      
         end
-            
+                           
     end
+    
+    % Calculating pink and white noise via PaWNextra.m
+        % See Barry & De Blasio (2021)
+        this_spectra_t = permute(this_spectra, [2 1 3]); % transposes
+        [iterations, PN, PN_slope, WN, n_sols, adjust_value, error_value, FL_chan] = ...
+            PaWNextra(this_spectra_t,... % broadband spectra freqs x chans x participants)
+            this_freqs(:,:,j),... % column vector of freq bins
+            -0.001,... % error threshold (E=-.001 is the default)
+            1000); % iterations (I believe this is the default)
     
     % Saving out results ----
     % combines into one variable
