@@ -1,19 +1,19 @@
 % EEG ICA cleaning and Spectral Decomposition Step 4 - Resting State
 % Matt Kmiecik
-% Started 20 FEB 2022
+% Started 3 AUGUST 2022
 
 workspace_prep % Prepares workspace
 
 % Preallocation ----
 num_iters = size(NUM, 1);       % number of participants in this batch
-i=1;                            % for testing purposes
+i=2;                            % for testing purposes
 visit = 'assessment-visit-1';   % name of the folder for visit number
-csd_switch = 1;                 % 1 == CSD will be computed
+csd_switch = 0;                 % 1 == CSD will be computed
 plot_switch = 1;                % 1 == PSD plots will be saved
 
 % For spectral decomposition settings
-wsize = 8; % FFT window size in seconds
-olap = 4; % FFT window overlap in seconds
+wsize = 2; % FFT window size in seconds
+olap = 1; % FFT window overlap in seconds
 
 % For peak alpha frequency (PAF) and center of gravity (COG) calculations
 % see: https://github.com/corcorana/restingIAF/blob/master/tutorial/tutorial.m
@@ -87,6 +87,8 @@ for i = 1:num_iters
     N = EEG.srate*wsize; % number of data points in FFT window
     poss_freqs = N/2 + 1; % possible frequencies (freq bins = EEG.srate/N)
     this_spectra = zeros(EEG.nbchan, poss_freqs, length(blocks));
+    this_spectra_psd = this_spectra; % for conversion to psd (no decibels)
+    this_spectra_amp = this_spectra; % for conversion to amplitude
     this_freqs = zeros(poss_freqs, 1, length(blocks));
     this_paf = zeros(EEG.nbchan, length(blocks)); % peak alpha freq
     this_cog = zeros(EEG.nbchan, length(blocks)); % center of gravity
@@ -130,6 +132,15 @@ for i = 1:num_iters
                 'plot','off'... % toggles plot
                 );
             
+            % obtains frequency resolution
+            freq_res = this_freqs(2,1,j)-this_freqs(1,1,j);
+            
+            % Converts from dB to PSD (microvolts^2/Hz)
+            this_spectra_psd(:,:,j) = 10.^(this_spectra(:,:,j)/10);
+            
+            % Converts from PSD (microvolts^2/Hz) to amplitdue (microvolts^2)
+            this_spectra_amp(:,:,j) = freq_res.*this_spectra_psd(:,:,j);
+             
             % Peak alpha frequency (PAF) and center of gravity (COG)
             [pSum, pChans, f] = restingIAF(...
                 this_EEG.data,... % EEG data
@@ -149,7 +160,6 @@ for i = 1:num_iters
             this_cog(:,j) = [pChans.gravs]; % center of gravity per chan
             this_iaf(j,:) = [pSum.paf pSum.cog]; %IAF (weighted by Q; see Corcoran et al., 2017)
             
-                      
             % Plots for troubleshooting (if needed)
             if plot_switch == 1
                 figure; pop_spectopo(this_EEG,1,[],'EEG','freq',[4 8 12 25 30],'freqrange',[0 75],'electrodes','on');
@@ -171,13 +181,48 @@ for i = 1:num_iters
     end
     
     % Calculating pink and white noise via PaWNextra.m
-        % See Barry & De Blasio (2021)
-        %this_spectra_t = permute(this_spectra, [2 1 3]); % transposes
-        %[iterations, PN, PN_slope, WN, n_sols, adjust_value, error_value, FL_chan] = ...
-        %    PaWNextra(this_spectra_t,... % broadband spectra freqs x chans x participants)
-        %    this_freqs(:,:,j),... % column vector of freq bins
-        %    -0.001,... % error threshold (E=-.001 is the default)
-        %    1000); % iterations (I believe this is the default)
+    % See Barry & De Blasio (2021)
+    non_dc_index = find(this_freqs(:,:,1) > 1);
+    freq_vector = this_freqs(non_dc_index,:,1);
+    this_spectra_psd_t = permute(this_spectra_psd(:,non_dc_index,:), [2 1 3]); % transposes
+    [iterations, PN, PN_slope, WN, n_sols, adjust_value, error_value, FL_chan] = ...
+            PaWNextra(this_spectra_psd_t,... % broadband spectra freqs x chans x participants)
+            freq_vector,... % column vector of freq bins
+            -1,... % error threshold (E=-.001 is the default)
+            1000); % iterations (I believe this is the default)
+    
+    % Subtracting pink and white noise from broadband spectra
+    % initialization
+    this_corrected = zeros(size(this_spectra_psd_t));
+    for slice=1:size(this_spectra_psd_t,3)
+        this_WN = repmat(WN(slice,:), [length(freq_vector),1]);
+        this_corrected(:,:,slice) = this_spectra_psd_t(:,:,slice) - PN(:,:,slice) - this_WN;
+        figure;
+        for m=1:30
+            subplot(5,6,m)
+            plot(freq_vector, this_spectra_psd_t(:,m,slice), 'Color', [.7 .7 .7])
+            hold on
+            plot(freq_vector, PN(:,m,slice), '-m')
+            hold on
+            plot(freq_vector, this_corrected(:,m,slice)', '-k')
+            axis([0 25 0 Inf]) % this is only correct with a .5 Hz binwidth
+            title(strcat('Block:', num2str(slice)))
+            xlabel('Hz')
+            ylabel('PSD (muV^2/Hz)')
+            % ADD SAVING OUT CAPABILITIES
+        end
+    end
+    
+   
+    
+        
+    
+    
+        
+        
+        
+        
+   
     
     % Saving out results ----
     % combines into one variable
