@@ -2,18 +2,18 @@
 % Matt Kmiecik
 % Started 3 AUGUST 2022
 
-workspace_prep % Prepares workspace
+workspace_prep_rs % Prepares workspace
 
 % Preallocation ----
 num_iters = size(NUM, 1);       % number of participants in this batch
 i=2;                            % for testing purposes
 visit = 'assessment-visit-1';   % name of the folder for visit number
-csd_switch = 0;                 % 1 == CSD will be computed
+csd_switch = 1;                 % 1 == CSD will be computed
 plot_switch = 1;                % 1 == PSD plots will be saved
 
 % For spectral decomposition settings
-wsize = 2; % FFT window size in seconds
-olap = 1; % FFT window overlap in seconds
+wsize = 4; % FFT window size in seconds
+olap = 2; % FFT window overlap in seconds
 
 % For peak alpha frequency (PAF) and center of gravity (COG) calculations
 % see: https://github.com/corcorana/restingIAF/blob/master/tutorial/tutorial.m
@@ -139,7 +139,8 @@ for i = 1:num_iters
             this_spectra_psd(:,:,j) = 10.^(this_spectra(:,:,j)/10);
             
             % Converts from PSD (microvolts^2/Hz) to amplitdue (microvolts^2)
-            this_spectra_amp(:,:,j) = freq_res.*this_spectra_psd(:,:,j);
+            % I decided to keep things in terms of PSD (microvolts^2/Hz)
+            %this_spectra_amp(:,:,j) = freq_res.*this_spectra_psd(:,:,j);
              
             % Peak alpha frequency (PAF) and center of gravity (COG)
             [pSum, pChans, f] = restingIAF(...
@@ -188,41 +189,40 @@ for i = 1:num_iters
     [iterations, PN, PN_slope, WN, n_sols, adjust_value, error_value, FL_chan] = ...
             PaWNextra(this_spectra_psd_t,... % broadband spectra freqs x chans x participants)
             freq_vector,... % column vector of freq bins
-            -1,... % error threshold (E=-.001 is the default)
+            -.001,... % error threshold (E=-.001 is the default)
             1000); % iterations (I believe this is the default)
     
     % Subtracting pink and white noise from broadband spectra
-    % initialization
-    this_corrected = zeros(size(this_spectra_psd_t));
+    this_corrected = zeros(size(this_spectra_psd_t)); % initialization
     for slice=1:size(this_spectra_psd_t,3)
-        this_WN = repmat(WN(slice,:), [length(freq_vector),1]);
+        this_WN = repmat(WN(slice,:), [length(freq_vector),1]); % preps
+        % Pink and White Noise correction HERE!
         this_corrected(:,:,slice) = this_spectra_psd_t(:,:,slice) - PN(:,:,slice) - this_WN;
-        figure;
+        % PLOTS RESULTS AND SAVES:
+        figure("Visible", 1); % plots the inital, pink, and observed spectra
+        axes('FontSize', 6)
+        t=tiledlayout(5,6,'TileSpacing','compact');
         for m=1:30
-            subplot(5,6,m)
+            nexttile
+            % Initial spectra
             plot(freq_vector, this_spectra_psd_t(:,m,slice), 'Color', [.7 .7 .7])
             hold on
+            % Pink Noise
             plot(freq_vector, PN(:,m,slice), '-m')
             hold on
+            % Observed spectra
             plot(freq_vector, this_corrected(:,m,slice)', '-k')
-            axis([0 25 0 Inf]) % this is only correct with a .5 Hz binwidth
-            title(strcat('Block:', num2str(slice)))
-            xlabel('Hz')
-            ylabel('PSD (muV^2/Hz)')
-            % ADD SAVING OUT CAPABILITIES
+            axis([0 25 0 Inf])
+            title(EEG.chanlocs(m).labels,'FontSize',6)
         end
+        title(t, strcat("Block-", num2str(slice)))
+        xlabel(t, 'Hz')
+        ylabel(t, 'PSD [(uV/cm^2)^2/Hz]') % after surface Laplacian, this is (uV/cm^2)^2/Hz (sort of like PSD)
+        plot_name = strcat('rs-', visit_name, '-', num2str(this_ss),...
+                '-','block-',num2str(slice),'-pink.pdf');
+        set(gcf,'units','inches','Position',[2, 2, 8, 6])
+        exportgraphics(gcf,fullfile(outpath, plot_name),'ContentType','vector');
     end
-    
-   
-    
-        
-    
-    
-        
-        
-        
-        
-   
     
     % Saving out results ----
     % combines into one variable
@@ -236,11 +236,15 @@ for i = 1:num_iters
     % 'S116' - eyes OPEN
     % 'S117' - eyes OPEN
     % 'S108' - eyes CLOSED
-    spec_res.spectra   = this_spectra; % 3D mat of spectra
+    spec_res.spectra   = this_spectra; % 3D mat of spectra (in dB)
     spec_res.freqs     = this_freqs;   % 3D mat of freqs bins
     spec_res.paf       = this_paf;     % 2D mat of PAF per chan per block
     spec_res.cog       = this_cog;     % 2D mat of COG per chan per block
     spec_res.iaf       = this_iaf;     % 2D mat of IAF per block
+    % spectra in PSD
+    % corrected spectra?
+    % probably corrected spectra stats
+    % probably corrected spectra freq bin vector
 
     % Saving out all data ----
     spec_outname = strcat('rs-', visit_name, '-', num2str(this_ss),...

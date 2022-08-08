@@ -2,7 +2,7 @@
 % Matt Kmiecik
 % Started 15 July 2022
 
-workspace_prep % Prepares workspace (see src/...)
+workspace_prep_rs % Prepares workspace (see src/...)
 
 % Initializes subjects for batch processing (if applicable)
 subjs = string({RAW{2:size(RAW,1),1}}); %{'324'}; 

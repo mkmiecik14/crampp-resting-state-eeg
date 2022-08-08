@@ -2,7 +2,7 @@
 % Matt Kmiecik
 % Started 20 FEB 2022
 
-workspace_prep % Prepares workspace
+workspace_prep_rs % Prepares workspace
 
 % Preallocation ----
 num_iters = size(NUM, 1);       % number of participants in this batch

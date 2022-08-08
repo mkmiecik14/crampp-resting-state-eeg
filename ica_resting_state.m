@@ -2,7 +2,7 @@
 % Matt Kmiecik
 % Started 20 July 2022
 
-workspace_prep % Prepares workspace
+workspace_prep_rs % Prepares workspace
 
 % Preprocessing ----
 num_iters = size(NUM, 1); % number of loop iterations/participants
