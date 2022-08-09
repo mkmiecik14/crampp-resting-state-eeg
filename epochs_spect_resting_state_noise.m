@@ -6,14 +6,15 @@ workspace_prep_rs % Prepares workspace
 
 % Preallocation ----
 num_iters = size(NUM, 1);       % number of participants in this batch
-i=2;                            % for testing purposes
+i=1;                            % for testing purposes
 visit = 'assessment-visit-1';   % name of the folder for visit number
 csd_switch = 1;                 % 1 == CSD will be computed
 plot_switch = 1;                % 1 == PSD plots will be saved
+noise_plot_switch = 1;          % 1 == Pink&White Noise plots saved
 
 % For spectral decomposition settings
-wsize = 4; % FFT window size in seconds
-olap = 2; % FFT window overlap in seconds
+wsize = 4;      % FFT window size in seconds
+olap = 2;       % FFT window overlap in seconds
 
 % For peak alpha frequency (PAF) and center of gravity (COG) calculations
 % see: https://github.com/corcorana/restingIAF/blob/master/tutorial/tutorial.m
@@ -113,7 +114,7 @@ for i = 1:num_iters
     % Calculates the duration of each block (in order)
     block_durations = round(end_times - start_times);
     
-    j=1; % for testing purposes
+    %j=1; % for testing purposes
     
     for j = 1:length(blocks)
         
@@ -183,7 +184,8 @@ for i = 1:num_iters
     
     % Calculating pink and white noise via PaWNextra.m
     % See Barry & De Blasio (2021)
-    non_dc_index = find(this_freqs(:,:,1) > 1);
+    min_freq = 1; % minimum frequency to begin noise estimation (I found 1Hz to be pretty good)
+    non_dc_index = find(this_freqs(:,:,1) >= min_freq);
     freq_vector = this_freqs(non_dc_index,:,1);
     this_spectra_psd_t = permute(this_spectra_psd(:,non_dc_index,:), [2 1 3]); % transposes
     [iterations, PN, PN_slope, WN, n_sols, adjust_value, error_value, FL_chan] = ...
@@ -198,30 +200,35 @@ for i = 1:num_iters
         this_WN = repmat(WN(slice,:), [length(freq_vector),1]); % preps
         % Pink and White Noise correction HERE!
         this_corrected(:,:,slice) = this_spectra_psd_t(:,:,slice) - PN(:,:,slice) - this_WN;
-        % PLOTS RESULTS AND SAVES:
-        figure("Visible", 1); % plots the inital, pink, and observed spectra
-        axes('FontSize', 6)
-        t=tiledlayout(5,6,'TileSpacing','compact');
-        for m=1:30
-            nexttile
-            % Initial spectra
-            plot(freq_vector, this_spectra_psd_t(:,m,slice), 'Color', [.7 .7 .7])
-            hold on
-            % Pink Noise
-            plot(freq_vector, PN(:,m,slice), '-m')
-            hold on
-            % Observed spectra
-            plot(freq_vector, this_corrected(:,m,slice)', '-k')
-            axis([0 25 0 Inf])
-            title(EEG.chanlocs(m).labels,'FontSize',6)
+        % PLOTS RESULTS AND SAVES (if requested):
+        if noise_plot_switch == 1
+            figure("Visible", 1); % plots the inital, pink, and observed spectra
+            axes('FontSize', 6)
+            t=tiledlayout(5,6,'TileSpacing','compact');
+            for m=1:30
+                nexttile
+                % Initial spectra
+                plot(freq_vector, this_spectra_psd_t(:,m,slice), 'Color', [.7 .7 .7])
+                hold on
+                % Pink Noise
+                plot(freq_vector, PN(:,m,slice), '-m')
+                hold on
+                % Observed spectra
+                plot(freq_vector, this_corrected(:,m,slice)', '-k')
+                axis([0 25 0 Inf])
+                title(EEG.chanlocs(m).labels,'FontSize',6)
+            end
+            title(t, strcat("Block-", num2str(slice)))
+            xlabel(t, 'Hz')
+            ylabel(t, 'PSD [(uV/cm^2)^2/Hz]') % after surface Laplacian, this is (uV/cm^2)^2/Hz (sort of like PSD)
+            plot_name = strcat('rs-', visit_name, '-', num2str(this_ss),...
+                    '-','block-',num2str(slice),'-pink.pdf');
+            set(gcf,'units','inches','Position',[2, 2, 8, 6])
+            exportgraphics(gcf,fullfile(outpath, plot_name),'ContentType','vector');
+            close; % closes figure down
+        else
+            % Figure is not drawn/saved
         end
-        title(t, strcat("Block-", num2str(slice)))
-        xlabel(t, 'Hz')
-        ylabel(t, 'PSD [(uV/cm^2)^2/Hz]') % after surface Laplacian, this is (uV/cm^2)^2/Hz (sort of like PSD)
-        plot_name = strcat('rs-', visit_name, '-', num2str(this_ss),...
-                '-','block-',num2str(slice),'-pink.pdf');
-        set(gcf,'units','inches','Position',[2, 2, 8, 6])
-        exportgraphics(gcf,fullfile(outpath, plot_name),'ContentType','vector');
     end
     
     % Saving out results ----
@@ -241,10 +248,9 @@ for i = 1:num_iters
     spec_res.paf       = this_paf;     % 2D mat of PAF per chan per block
     spec_res.cog       = this_cog;     % 2D mat of COG per chan per block
     spec_res.iaf       = this_iaf;     % 2D mat of IAF per block
-    % spectra in PSD
-    % corrected spectra?
-    % probably corrected spectra stats
-    % probably corrected spectra freq bin vector
+    spec_res.psd       = this_spectra_psd; % converted this_spectra from dB to PSD (uV^2/Hz)
+    spec_res.corrected = this_corrected; % Pink and white noise are subtracted from PSD
+    spec_res.freqvec   = freq_vector; % frequency vector used for Pink&White noise calc
 
     % Saving out all data ----
     spec_outname = strcat('rs-', visit_name, '-', num2str(this_ss),...

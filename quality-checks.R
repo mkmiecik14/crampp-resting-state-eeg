@@ -6,25 +6,25 @@
 
 source("r-prep.R") # preps R workspace
 
-#####################
-#                   #
-# BROADBAND SPECTRA #
-#                   #
-#####################
+###########################
+#                         #
+# BROADBAND SPECTRA in dB #
+#                         #
+###########################
 
 # Loads data
-load("../output/psd-res.rda")
+load("../output/dB-res.rda")
 
-# collpses across block (subject-wise summary)
-eyes_open_closed_ss <- 
-  psd_res %>%
+# collapses across block (subject-wise summary)
+dB_eyes_open_closed_ss <- 
+  dB_res %>%
   group_by(ss, eyes, elec, freq, band) %>%
   summarise(m = mean(psd), n = n()) %>%
   ungroup()
 
 # collapses across block (group-wise summary)
-eyes_open_closed_sum <- 
-  eyes_open_closed_ss %>%
+dB_eyes_open_closed_sum <- 
+  dB_eyes_open_closed_ss %>%
   group_by(eyes, elec, freq, band) %>%
   summarise(
     M = mean(m),
@@ -35,13 +35,144 @@ eyes_open_closed_sum <-
   ungroup()
 
 # Eyes open vs. closed plot
-ggplot(eyes_open_closed_sum, aes(freq, M, group = eyes, color = eyes)) +
+ggplot(dB_eyes_open_closed_sum, aes(freq, M, group = eyes, color = eyes)) +
   geom_line() +
   geom_vline(xintercept = 12, color = rdgy_pal[8], linetype = 2) +
   coord_cartesian(xlim = c(0, 25), ylim = c(-40, -10)) +
   theme_bw() +
   scale_color_manual(values = c(rdgy_pal[3], rdgy_pal[11])) +
   labs(x = "Frequency", y = "Power Spectral Density (dB)") +
+  theme(legend.position = "bottom") +
+  facet_wrap(~elec)
+
+#############################
+#                           #
+# BROADBAND SPECTRA in PSD  #
+#                           #
+#############################
+
+# Loads data
+load("../output/psd-res.rda")
+
+# collpses across block (subject-wise summary)
+psd_eyes_open_closed_ss <- 
+  psd_res %>%
+  group_by(ss, eyes, elec, freq, band) %>%
+  summarise(m = mean(psd), n = n()) %>%
+  ungroup()
+
+# collapses across block (group-wise summary)
+psd_eyes_open_closed_sum <- 
+  psd_eyes_open_closed_ss %>%
+  group_by(eyes, elec, freq, band) %>%
+  summarise(
+    M = mean(m),
+    SD = sd(m),
+    N = n(),
+    SEM = SD/sqrt(N)
+  ) %>%
+  ungroup()
+
+# Eyes open vs. closed plot
+ggplot(psd_eyes_open_closed_sum, aes(freq, M, group = eyes, color = eyes)) +
+  geom_line() +
+  geom_vline(xintercept = 12, color = rdgy_pal[8], linetype = 2) +
+  coord_cartesian(xlim = c(0, 25)) +
+  theme_bw() +
+  scale_color_manual(values = c(rdgy_pal[3], rdgy_pal[11])) +
+  labs(x = "Frequency", y = "Power Spectral Density [(uV/cm^2))^2/Hz]") +
+  theme(legend.position = "bottom") +
+  facet_wrap(~elec)
+
+#############################################################
+#                                                           #
+# BROADBAND SPECTRA in PSD CORRECTED FOR PINK&WHITE NOISE   #
+#                                                           #
+#############################################################
+
+# Loads data
+load("../output/psd-cor-res.rda")
+
+# collapses across block (subject-wise summary)
+psd_cor_eyes_open_closed_ss <- 
+  psd_cor_res %>%
+  group_by(ss, eyes, elec, freq, band) %>%
+  summarise(m = mean(psd_cor), n = n()) %>%
+  ungroup()
+
+# collapses across block (group-wise summary)
+psd_cor_eyes_open_closed_sum <- 
+  psd_cor_eyes_open_closed_ss %>%
+  group_by(eyes, elec, freq, band) %>%
+  summarise(
+    M = mean(m),
+    SD = sd(m),
+    N = n(),
+    SEM = SD/sqrt(N)
+  ) %>%
+  ungroup()
+
+# Eyes open vs. closed plot
+ggplot(psd_cor_eyes_open_closed_sum, aes(freq, M, group = eyes, color = eyes)) +
+  geom_line() +
+  geom_vline(xintercept = 12, color = rdgy_pal[8], linetype = 2) +
+  coord_cartesian(xlim = c(0, 25)) +
+  theme_bw() +
+  scale_color_manual(values = c(rdgy_pal[3], rdgy_pal[11])) +
+  labs(
+    x = "Frequency", 
+    y = "Power Spectral Density [(uV/cm^2))^2/Hz]",
+    title = "Corrected for Pink & White Noise"
+    ) +
+  theme(legend.position = "bottom") +
+  facet_wrap(~elec)
+
+#########################################
+#                                       #
+# COMPARING PSD vs. PSD NOISE CORRECTED #
+#                                       #
+#########################################
+
+# combines both summary dfs from above
+psd_both_eyes_open_closed_sum <-
+  bind_rows(
+    psd_eyes_open_closed_sum %>% mutate(noise = "uncorrected"),
+    psd_cor_eyes_open_closed_sum %>% mutate(noise = "corrected")
+  )
+
+# Eyes open
+ggplot(
+  psd_both_eyes_open_closed_sum %>% filter(eyes == "open"), 
+  aes(freq, M, group = noise, color = noise)
+  ) +
+  geom_line() +
+  geom_vline(xintercept = 12, color = rdgy_pal[8], linetype = 2) +
+  coord_cartesian(xlim = c(0, 15)) +
+  theme_bw() +
+  scale_color_manual(values = c(rdgy_pal[11], ghibli_palettes$PonyoMedium[3])) +
+  labs(
+    x = "Frequency", 
+    y = "Power Spectral Density [(uV/cm^2))^2/Hz]",
+    title = "Eyes Open"
+  ) +
+  theme(legend.position = "bottom") +
+  facet_wrap(~elec)
+
+# Eyes closed
+ggplot(
+  psd_both_eyes_open_closed_sum %>% filter(eyes == "closed"), 
+  aes(freq, M, group = noise, color = noise)
+) +
+  geom_line() +
+  geom_vline(xintercept = 12, color = rdgy_pal[8], linetype = 2) +
+  coord_cartesian(xlim = c(0, 15)) +
+  theme_bw() +
+  scale_color_manual(values = c(rdgy_pal[11], ghibli_palettes$PonyoMedium[3])) +
+  labs(
+    x = "Frequency", 
+    y = "Power Spectral Density [(uV/cm^2))^2/Hz]",
+    title = "Eyes Closed"
+  ) +
   theme(legend.position = "bottom") +
   facet_wrap(~elec)
 
@@ -226,3 +357,4 @@ ggplot(iaf_res_long_sum, aes(eyes, M, fill = name)) +
   labs(x = "Condition", y = "Individual Alpha Frequency", caption = "SEM error bars.") +
   theme_bw() +
   theme(legend.position = "bottom")
+

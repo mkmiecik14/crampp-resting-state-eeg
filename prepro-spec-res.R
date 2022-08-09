@@ -4,7 +4,7 @@
 
 source("r-prep.R") # preps R workspace 
 
-# Loading various data ----
+# Loading various data - - - -
 
 # Loading in spectral results from matlab (.mat)
 spec_files <- list.files("../output/", pattern = "*spec-res.mat")
@@ -22,7 +22,10 @@ write_csv(chan_locs, file = "../output/chan-locs.csv")
 subjs <- 
   tibble(fnames = spec_files) %>% 
   separate(fnames, into = c("task", "visit", "ss", "type1", "type2", "ext")) %>%
-  mutate(ss_i = 1:n()) # to help join below / for specificity 
+  mutate(
+    ss_i = 1:n(), # to help join below / for specificity 
+    ss = as.numeric(ss)
+    ) 
 
 # Reading in and unpacking spectral results ----
 spec_res <- 
@@ -31,15 +34,21 @@ spec_res <-
   map("spec.res") %>%
   map(~as.matrix(.x))
 
-# Pulling out various spectral results ----
+# Pulling out various spectral results - - - -
 # resting-state blocks 1-8 along z dim in numerical order
-stim_spectra  <- spec_res %>% map(1) # broadband PSD
+stim_spectra  <- spec_res %>% map(1) # broadband PSD (in dB)
 stim_freqs <- spec_res %>% map(2) # frequencies
 freqs <- stim_freqs[[1]][,,1] # vector of frequencies
 stim_paf <- spec_res %>% map(3) # peak alpha frequency
 stim_cog <- spec_res %>% map(4) # center of gravity
 stim_iaf <- spec_res %>% map(5) # individual alpha freq
-
+# broadband PSD (converted to uV^2/Hz + surface Laplacian)
+stim_psd <- spec_res %>% map(6) 
+# broadband PSD (converted to uV^2/Hz + surface Laplacian) corrected for 
+# pink and white noise
+stim_psd_cor <- spec_res %>% map(7)
+stim_freqvec <- spec_res %>% map(8) # frequencies for noise correction
+pwn_freqs <-  stim_freqvec[[1]][,1] # frequency vector for noise correction
 
 # trigger definitions
 triggers <-
@@ -51,18 +60,18 @@ triggers <-
     block = 1:8
   )
 
-##############################
-#                            #
-# BROADBAND SPECTRAL RESULTS #
-#                            #
-##############################
+#####################################
+#                                   #
+# BROADBAND SPECTRAL RESULTS in dB  #
+#                                   #
+#####################################
 
 # Extracting and tidying spectral results
 
 # frequency resolution is determined in MATLAB spectral decomposition scripts
 # so see those scripts for these numbers:
 eeg_srate <- 256 # data sampled at 256 Hz
-fft_window <- 8 # in seconds
+fft_window <- 4 # in seconds
 n_points <- eeg_srate*fft_window # number of data points in FFT window
 freq_bins <- eeg_srate/n_points # frequency bins
 
@@ -73,8 +82,8 @@ alpha <-  seq(7.5, 13, freq_bins)
 beta <-   seq(13, 30, freq_bins)
 
 # Each participant has:
-# 30 rows (electrodes w/o ref) * 257 (frequencies) * 8 (rs blocks)
-psd_res <-
+# 30 rows (electrodes w/o ref) * n (depends on frequency bins) * 8 (rs blocks)
+dB_res <-
   stim_spectra %>%
   map_dfr(
     ~bind_rows(apply(.x, 3, as_tibble), .id = "block") %>% 
@@ -105,8 +114,8 @@ psd_res <-
   )
   
 # Saving out broadband spectral results
-save(psd_res, file = "../output/psd-res.rda")
-write_csv(psd_res, file = "../output/psd-res.csv")
+save(dB_res, file = "../output/dB-res.rda")
+write_csv(dB_res, file = "../output/dB-res.csv")
 
 ########################
 #                      #
@@ -176,6 +185,95 @@ iaf_res <-
 save(iaf_res, file = "../output/iaf-res.rda")
 write_csv(iaf_res, file = "../output/iaf-res.csv")
 
+#######################################
+#                                     #
+# BROADBAND SPECTRAL RESULTS in PSD   #
+#             uV^2/Hz                 #
+#                                     #
+#######################################
+
+# Technically, the signals were filtered via surface Laplacian prior to FFT. 
+# The surface Laplacian puts the units as uV/cm^2 then an FFT is performed, 
+# putting the final units as ((uV/cm^2)^2)/Hz.....I think
+
+# Extracting and tidying spectral results
+psd_res <-
+  stim_psd %>%
+  map_dfr(
+    ~bind_rows(apply(.x, 3, as_tibble), .id = "block") %>% 
+      mutate(elec = rep(chan_locs$labels, 8)) %>%
+      relocate(elec, .after = block) %>%
+      pivot_longer(c(-block, -elec)) %>%
+      mutate(name = rep(freqs, 8*length(chan_locs$labels))),
+    .id = "ss_i"
+  ) %>%
+  # converts to numeric
+  mutate(
+    ss_i = as.numeric(ss_i),
+    block = as.numeric(block)
+  ) %>% 
+  left_join(., subjs %>% select(ss_i, ss), by = "ss_i") %>% # joins with subject numbers
+  left_join(., triggers %>% select(block, eyes), by = "block") %>%
+  rename(freq = name, psd = value) %>% # renaming
+  select(ss, block, eyes, elec, freq, psd) %>% # reordering + deselecting (ss_i)
+  # injects frequency band labels here
+  mutate(
+    band = case_when(
+      freq %in% delta ~ "delta",
+      freq %in% theta ~ "theta",
+      freq %in% alpha ~ "alpha",
+      freq %in% beta ~ "beta",
+      TRUE ~ "outside"
+    )
+  )
+  
+# Saving out broadband spectral results
+save(psd_res, file = "../output/psd-res.rda")
+write_csv(psd_res, file = "../output/psd-res.csv")
+
+################################################################
+#                                                              #
+# SPECTRAL RESULTS in PSD CORRECTED FOR PINK AND WHITE NOISE   #
+#                       units:  uV^2/Hz                        #
+#                                                              #
+################################################################
+
+# Technically, the signals were filtered via surface Laplacian prior to FFT. 
+# The surface Laplacian puts the units as uV/cm^2 then an FFT is performed, 
+# putting the final units as ((uV/cm^2)^2)/Hz.....I think
+
+psd_cor_res <-
+  stim_psd_cor %>%
+  map_dfr(
+    ~bind_rows(apply(.x, 3, as_tibble), .id = "block") %>%
+      mutate(freq = rep(pwn_freqs, 8)) %>%
+      relocate(freq, .after = block) %>%
+      pivot_longer(c(-block, -freq), names_to = "elec", values_to = "psd_cor") %>%
+      mutate(elec = rep(chan_locs$labels, 8*length(pwn_freqs))),
+    .id = "ss_i"
+    ) %>%
+  # converts to numeric
+  mutate(
+    ss_i = as.numeric(ss_i),
+    block = as.numeric(block)
+  ) %>% 
+  left_join(., subjs %>% select(ss_i, ss), by = "ss_i") %>% # joins with subject numbers
+  left_join(., triggers %>% select(block, eyes), by = "block") %>%
+  select(ss, block, eyes, elec, freq, psd_cor) %>% # reordering + deselecting (ss_i)
+  # injects frequency band labels here
+  mutate(
+    band = case_when(
+      freq %in% delta ~ "delta",
+      freq %in% theta ~ "theta",
+      freq %in% alpha ~ "alpha",
+      freq %in% beta ~ "beta",
+      TRUE ~ "outside"
+    )
+  )
+
+# Saving out pink&white noise corrected spectral results
+save(psd_cor_res, file = "../output/psd-cor-res.rda")
+write_csv(psd_cor_res, file = "../output/psd-cor-res.csv")
 
 # Cleans work space ----
 rm(
@@ -201,5 +299,11 @@ rm(
   eeg_srate,
   fft_window,
   freq_bins,
-  n_points
+  n_points,
+  pwn_freqs,
+  dB_res,
+  psd_cor_res,
+  stim_freqvec,
+  stim_psd,
+  stim_psd_cor
 )
