@@ -40,8 +40,8 @@ for i = 1:num_iters
     EEG = pop_iclabel(EEG, 'default');
     EEG = pop_icflag(EEG, ...
         [NaN NaN;...    % brain
-        NaN NaN;...     % muscle
-        0.8 1;...       % eye ( > 80% probability will reject components)
+        0.8 1;...       % muscle (> 80% probability will reject components)
+        0.8 1;...       % eye (> 80% probability will reject components)
         NaN NaN;...     % heart
         NaN NaN;...     % line noise
         NaN NaN;...     % channel noise
@@ -184,7 +184,14 @@ for i = 1:num_iters
     
     % Calculating pink and white noise via PaWNextra.m
     % See Barry & De Blasio (2021)
-    min_freq = 1; % minimum frequency to begin noise estimation (I found 1Hz to be pretty good)
+    %
+    % The minimum frequency to begin PaWNextra is important:
+    % given that these data were highpass filtered (see
+    % prepro_resting_state.m) we should start estimating pink&white noise
+    % at the edge of the filter (i.e., if data were highpass filtered 
+    %  -6dB @ 1Hz, 425 point highpass, 2Hz transition band width, then the
+    %  minimum frequency to start noise estimation would be 2 Hz
+    min_freq = 2; % minimum frequency to begin noise estimation 
     non_dc_index = find(this_freqs(:,:,1) >= min_freq);
     freq_vector = this_freqs(non_dc_index,:,1);
     this_spectra_psd_t = permute(this_spectra_psd(:,non_dc_index,:), [2 1 3]); % transposes
