@@ -3,7 +3,6 @@
 This repository contains all the code for processing, visualizing, and analysis of the CRAMPP resting state EEG data.
 
 ## Processing Pipeline
-<hr >
 
 ### All-Purpose Scripts
 
@@ -44,6 +43,11 @@ This MATLAB script performs the following steps
 
 1) `prepro-spec-res.R`
 
+This R script reads in:
+* all spectral results saved from MATLAB: "../output/*spec-res.mat"
+* channel location info: read_xlsx("../data/ss-info.xlsx", sheet = "elec")
+
+and processes these data to prepare for analysis in R. Frequency bandwidths are defined.
 
 
 

@@ -185,7 +185,7 @@ for i = 1:num_iters
     % Calculating pink and white noise via PaWNextra.m
     % See Barry & De Blasio (2021)
     %
-    % The minimum frequency to begin PaWNextra is important:
+    % ! The minimum frequency to begin PaWNextra is important !
     % given that these data were highpass filtered (see
     % prepro_resting_state.m) we should start estimating pink&white noise
     % at the edge of the filter (i.e., if data were highpass filtered 
