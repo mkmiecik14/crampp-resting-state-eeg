@@ -52,7 +52,7 @@ for i = 1:num_iters
     this_reject = find(EEG.reject.gcompreject);
     EEG = pop_subcomp(EEG, this_reject, 0);
     
-    %eeglab redraw    
+    eeglab redraw    
    
     if csd_switch == 1
     

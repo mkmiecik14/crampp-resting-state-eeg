@@ -25,6 +25,7 @@ dB_eyes_open_closed_ss <-
 # collapses across block (group-wise summary)
 dB_eyes_open_closed_sum <- 
   dB_eyes_open_closed_ss %>%
+  filter(complete.cases(.)) %>%
   group_by(eyes, elec, freq, band) %>%
   summarise(
     M = mean(m),
@@ -35,13 +36,22 @@ dB_eyes_open_closed_sum <-
   ungroup()
 
 # Eyes open vs. closed plot
-ggplot(dB_eyes_open_closed_sum, aes(freq, M, group = eyes, color = eyes)) +
+ggplot(dB_eyes_open_closed_sum, aes(freq, M, group = eyes, color = eyes, fill = eyes)) +
+  geom_ribbon(
+    aes(ymin = M-SEM, ymax = M+SEM, fill = eyes), color = NA, alpha = 1/2
+  ) +
   geom_line() +
   geom_vline(xintercept = 12, color = rdgy_pal[8], linetype = 2) +
-  coord_cartesian(xlim = c(0, 25), ylim = c(-40, -10)) +
+  scale_x_continuous(limits = c(0, 25)) +
+  scale_y_continuous(limits = c(-40, -10)) +
   theme_bw() +
   scale_color_manual(values = c(rdgy_pal[3], rdgy_pal[11])) +
-  labs(x = "Frequency", y = "Power Spectral Density (dB)") +
+  scale_fill_manual(values = c(rdgy_pal[3], rdgy_pal[11])) +
+  labs(
+    x = "Frequency", 
+    y = "Power Spectral Density (dB)", 
+    caption = "SEM error bars."
+    ) +
   theme(legend.position = "bottom") +
   facet_wrap(~elec)
 
@@ -64,6 +74,7 @@ psd_eyes_open_closed_ss <-
 # collapses across block (group-wise summary)
 psd_eyes_open_closed_sum <- 
   psd_eyes_open_closed_ss %>%
+  filter(complete.cases(.)) %>%
   group_by(eyes, elec, freq, band) %>%
   summarise(
     M = mean(m),
@@ -73,8 +84,14 @@ psd_eyes_open_closed_sum <-
   ) %>%
   ungroup()
 
-# Eyes open vs. closed plot
-ggplot(psd_eyes_open_closed_sum, aes(freq, M, group = eyes, color = eyes)) +
+# Eyes open vs. closed plot (FIX THIS PLOT! REMOVE COORD_CARTE)
+ggplot(
+  psd_eyes_open_closed_sum, 
+  aes(freq, M, group = eyes, color = eyes, fill = eyes)
+  ) +
+  geom_ribbon(
+    aes(ymin = M-SEM, ymax = M+SEM, fill = eyes), color = NA, alpha = 1/2
+  ) +
   geom_line() +
   geom_vline(xintercept = 12, color = rdgy_pal[8], linetype = 2) +
   coord_cartesian(xlim = c(0, 25)) +
