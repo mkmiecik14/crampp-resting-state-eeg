@@ -49,5 +49,16 @@ This R script reads in:
 
 and processes these data to prepare for analysis in R. Frequency bandwidths are defined.
 
+2) `quality-checks.R`
+
+
+### Helper Scripts
+
+* `check_ica.m` - this MATLAB script is a custom function that allows the user to view the processed and ICA cleaned EEG simply by typing:
+
+check_ica(ss_number, visit_number)
+
+* `rename_brainvision_files.m` - not my script, but a useful one found online to rename brainvision files
+
 
 
