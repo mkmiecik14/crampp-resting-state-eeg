@@ -64,7 +64,7 @@ ggplot(dB_eyes_open_closed_sum, aes(freq, M, group = eyes, color = eyes, fill = 
 # Loads data
 load("../output/psd-res.rda")
 
-# collpses across block (subject-wise summary)
+# collapses across block (subject-wise summary)
 psd_eyes_open_closed_ss <- 
   psd_res %>%
   group_by(ss, eyes, elec, freq, band) %>%
@@ -94,9 +94,11 @@ ggplot(
   ) +
   geom_line() +
   geom_vline(xintercept = 12, color = rdgy_pal[8], linetype = 2) +
-  coord_cartesian(xlim = c(0, 25)) +
+  scale_x_continuous(limits = c(0, 25)) +
+  scale_y_continuous(limits = c(0, .1)) +
   theme_bw() +
   scale_color_manual(values = c(rdgy_pal[3], rdgy_pal[11])) +
+  scale_fill_manual(values = c(rdgy_pal[3], rdgy_pal[11])) +
   labs(x = "Frequency", y = "Power Spectral Density [(uV/cm^2))^2/Hz]") +
   theme(legend.position = "bottom") +
   facet_wrap(~elec)
@@ -113,6 +115,7 @@ load("../output/psd-cor-res.rda")
 # collapses across block (subject-wise summary)
 psd_cor_eyes_open_closed_ss <- 
   psd_cor_res %>%
+  filter(complete.cases(psd_cor)) %>%
   group_by(ss, eyes, elec, freq, band) %>%
   summarise(m = mean(psd_cor), n = n()) %>%
   ungroup()
@@ -131,11 +134,16 @@ psd_cor_eyes_open_closed_sum <-
 
 # Eyes open vs. closed plot
 ggplot(psd_cor_eyes_open_closed_sum, aes(freq, M, group = eyes, color = eyes)) +
+  geom_ribbon(
+    aes(ymin = M-SEM, ymax = M+SEM, fill = eyes), color = NA, alpha = 1/2
+  ) +
   geom_line() +
   geom_vline(xintercept = 12, color = rdgy_pal[8], linetype = 2) +
-  coord_cartesian(xlim = c(0, 25)) +
+  scale_x_continuous(limits = c(0, 25)) +
+  scale_y_continuous(limits = c(0, .15)) + # may need adjusting
   theme_bw() +
   scale_color_manual(values = c(rdgy_pal[3], rdgy_pal[11])) +
+  scale_fill_manual(values = c(rdgy_pal[3], rdgy_pal[11])) +
   labs(
     x = "Frequency", 
     y = "Power Spectral Density [(uV/cm^2))^2/Hz]",
