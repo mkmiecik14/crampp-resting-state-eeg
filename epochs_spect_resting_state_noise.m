@@ -50,6 +50,7 @@ for i = 1:num_iters
     
     % Removes artifactual ICs
     this_reject = find(EEG.reject.gcompreject);
+    %this_reject = [2; this_reject]; % only for participant 308 visit 1
     EEG = pop_subcomp(EEG, this_reject, 0);
     
     eeglab redraw    
@@ -164,7 +165,8 @@ for i = 1:num_iters
             
             % Plots for troubleshooting (if needed)
             if plot_switch == 1
-                figure; pop_spectopo(this_EEG,1,[],'EEG','freq',[4 8 12 25 30],'freqrange',[0 75],'electrodes','on');
+                figure("Visible","off");
+                pop_spectopo(this_EEG,1,[],'EEG','freq',[4 8 12 25 30],'freqrange',[0 75],'electrodes','on');
                 saveas(gcf,...
                     fullfile(outpath,...
                     strcat('rs-', visit_name, '-', num2str(this_ss),...
@@ -191,9 +193,19 @@ for i = 1:num_iters
     % at the edge of the filter (i.e., if data were highpass filtered 
     %  -6dB @ 1Hz, 425 point highpass, 2Hz transition band width, then the
     %  minimum frequency to start noise estimation would be 2 Hz
-    min_freq = 2; % minimum frequency to begin noise estimation 
-    non_dc_index = find(this_freqs(:,:,1) >= min_freq);
-    freq_vector = this_freqs(non_dc_index,:,1);
+    min_freq = 2; % minimum frequency to begin noise estimation
+    % This loop was developed to determine the frequency vector in the case
+    % of a missing/rejected first block(s)
+    for m=1:size(this_freqs,3)
+        if isnan(this_freqs(:,1,m))
+            % do nothing as this block's frequency vector is nan
+        else
+            non_dc_index = find(this_freqs(:,:,m) >= min_freq);
+            freq_vector = this_freqs(non_dc_index,:,m);
+            break % no need to evaluate further as frequency vector is determined
+        end
+    end
+
     this_spectra_psd_t = permute(this_spectra_psd(:,non_dc_index,:), [2 1 3]); % transposes
     [iterations, PN, PN_slope, WN, n_sols, adjust_value, error_value, FL_chan] = ...
             PaWNextra(this_spectra_psd_t,... % broadband spectra freqs x chans x participants)
@@ -209,7 +221,7 @@ for i = 1:num_iters
         this_corrected(:,:,slice) = this_spectra_psd_t(:,:,slice) - PN(:,:,slice) - this_WN;
         % PLOTS RESULTS AND SAVES (if requested):
         if noise_plot_switch == 1
-            figure("Visible", 1); % plots the inital, pink, and observed spectra
+            figure("Visible", "off"); % plots the inital, pink, and observed spectra
             axes('FontSize', 6)
             t=tiledlayout(5,6,'TileSpacing','compact');
             for m=1:30
