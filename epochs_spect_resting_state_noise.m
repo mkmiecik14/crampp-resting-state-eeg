@@ -88,22 +88,22 @@ for i = 1:num_iters
     % preallocates arrays
     N = EEG.srate*wsize; % number of data points in FFT window
     poss_freqs = N/2 + 1; % possible frequencies (freq bins = EEG.srate/N)
-    this_spectra = zeros(EEG.nbchan, poss_freqs, length(blocks));
+    this_spectra = NaN(EEG.nbchan, poss_freqs, length(blocks));
     this_spectra_psd = this_spectra; % for conversion to psd (no decibels)
     this_spectra_amp = this_spectra; % for conversion to amplitude
-    this_freqs = zeros(poss_freqs, 1, length(blocks));
-    this_paf = zeros(EEG.nbchan, length(blocks)); % peak alpha freq
-    this_cog = zeros(EEG.nbchan, length(blocks)); % center of gravity
+    this_freqs = NaN(poss_freqs, 1, length(blocks));
+    this_paf = NaN(EEG.nbchan, length(blocks)); % peak alpha freq
+    this_cog = NaN(EEG.nbchan, length(blocks)); % center of gravity
     
     % grand average PAF and COG (rows are blocks, cols are PAF and COG)
-    this_iaf = zeros(length(blocks), 2); 
+    this_iaf = NaN(length(blocks), 2); 
     
     % In order for this script to accomodate rejected epochs, the
     % epoch start stop must be determined by a 
     % starting trigger (e.g., S111) and its ending e.g., (S211)
     
     % Getting start and stop latencies of the stimulation blocks
-    start_times = zeros(1, length(blocks)); % initializes vector
+    start_times = NaN(1, length(blocks)); % initializes vector
     end_times = start_times; % initializes vector
     for k = 1:length(blocks)
         % Retrieving the latency (in seconds) of each block start
@@ -214,7 +214,7 @@ for i = 1:num_iters
             1000); % iterations (I believe this is the default)
     
     % Subtracting pink and white noise from broadband spectra
-    this_corrected = zeros(size(this_spectra_psd_t)); % initialization
+    this_corrected = NaN(size(this_spectra_psd_t)); % initialization
     for slice=1:size(this_spectra_psd_t,3)
         this_WN = repmat(WN(slice,:), [length(freq_vector),1]); % preps
         % Pink and White Noise correction HERE!

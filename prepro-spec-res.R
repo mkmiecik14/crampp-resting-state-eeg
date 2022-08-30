@@ -25,7 +25,17 @@ subjs <-
   mutate(
     ss_i = 1:n(), # to help join below / for specificity 
     ss = as.numeric(ss)
-    ) 
+    )
+
+# trigger definitions
+triggers <-
+  tibble(
+    trigger = c(111, 102, 103, 114, 105, 116, 117, 108),
+    eyes = c(
+      "open", "closed", "closed", "open", "closed", "open", "open", "closed"
+    ),
+    block = 1:8
+  )
 
 # Reading in and unpacking spectral results ----
 spec_res <- 
@@ -50,15 +60,9 @@ stim_psd_cor <- spec_res %>% map(7)
 stim_freqvec <- spec_res %>% map(8) # frequencies for noise correction
 pwn_freqs <-  stim_freqvec[[1]][,1] # frequency vector for noise correction
 
-# trigger definitions
-triggers <-
-  tibble(
-    trigger = c(111, 102, 103, 114, 105, 116, 117, 108),
-    eyes = c(
-      "open", "closed", "closed", "open", "closed", "open", "open", "closed"
-      ),
-    block = 1:8
-  )
+# Cleanup
+rm(spec_res) # removes from memory 
+gc() # garbage collection
 
 #####################################
 #                                   #
@@ -112,10 +116,23 @@ dB_res <-
       TRUE ~ "outside"
     )
   )
+
+# check for missing blocks
+# dB_res_blocks <- 
+#   dB_res %>%
+#   filter(complete.cases(psd)) %>%
+#   select(ss:elec) %>% 
+#   distinct() %>% 
+#   count(ss, block, eyes) %>% 
+#   count(ss, eyes)
+# 
+# dB_res_blocks %>% filter(n<4)
   
 # Saving out broadband spectral results
 save(dB_res, file = "../output/dB-res.rda")
 write_csv(dB_res, file = "../output/dB-res.csv")
+rm(dB_res) # removes from memory
+gc() # garbage collection
 
 ########################
 #                      #
@@ -135,9 +152,22 @@ paf_res <-
   left_join(., triggers %>% select(block, eyes), by = "block") %>%
   select(ss, elec, block, eyes, paf)
 
+# check for missing blocks
+# paf_res_blocks <- 
+#   paf_res %>%
+#   filter(complete.cases(paf)) %>%
+#   select(ss:eyes) %>% 
+#   distinct() %>% 
+#   count(ss, block, eyes) %>% 
+#   count(ss, eyes)
+# 
+# paf_res_blocks %>% filter(n<4)
+
 # Saving out paf results
 save(paf_res, file = "../output/paf-res.rda")
 write_csv(paf_res, file = "../output/paf-res.csv")
+rm(paf_res) # removes from memory
+gc() # garbage collection
 
 #####################
 #                   #
@@ -157,9 +187,22 @@ cog_res <-
   left_join(., triggers %>% select(block, eyes), by = "block") %>%
   select(ss, elec, block, eyes, cog)
 
+# check for missing blocks
+# cog_res_blocks <-
+#   cog_res %>%
+#   filter(complete.cases(cog)) %>%
+#   select(ss:eyes) %>%
+#   distinct() %>%
+#   count(ss, block, eyes) %>%
+#   count(ss, eyes)
+# 
+# cog_res_blocks %>% filter(n<4)
+
 # Saving out cog results
 save(cog_res, file = "../output/cog-res.rda")
 write_csv(cog_res, file = "../output/cog-res.csv")
+rm(cog_res) # removes from memory
+gc() # garbage collection
 
 ##############################################
 #                                            #
@@ -181,9 +224,20 @@ iaf_res <-
   left_join(., triggers %>% select(block, eyes), by = "block") %>%
   select(ss, block, eyes, paf, cog)
 
+# check for missing blocks
+# iaf_res_blocks <-
+#   iaf_res %>%
+#   filter(complete.cases(.)) %>%
+#   count(ss, block, eyes) %>%
+#   count(ss, eyes)
+# 
+# iaf_res_blocks %>% filter(n<4)
+
 # Saving out iaf results
 save(iaf_res, file = "../output/iaf-res.rda")
 write_csv(iaf_res, file = "../output/iaf-res.csv")
+rm(iaf_res) # removes from memory
+gc() # garbage collection
 
 #######################################
 #                                     #
@@ -226,10 +280,23 @@ psd_res <-
       TRUE ~ "outside"
     )
   )
+
+# check for missing blocks
+# psd_res_blocks <- 
+#   psd_res %>%
+#   filter(complete.cases(psd)) %>%
+#   select(ss:elec) %>% 
+#   distinct() %>% 
+#   count(ss, block, eyes) %>% 
+#   count(ss, eyes)
+# 
+# psd_res_blocks %>% filter(n<4)
   
 # Saving out broadband spectral results
 save(psd_res, file = "../output/psd-res.rda")
 write_csv(psd_res, file = "../output/psd-res.csv")
+rm(psd_res) # removes from memory
+gc() # garbage collection
 
 ################################################################
 #                                                              #
@@ -271,15 +338,26 @@ psd_cor_res <-
     )
   )
 
+# check for missing blocks
+# psd_cor_res_blocks <- 
+#   psd_cor_res %>%
+#   filter(complete.cases(psd_cor)) %>%
+#   select(ss:elec) %>% 
+#   distinct() %>% 
+#   count(ss, block, eyes) %>% 
+#   count(ss, eyes)
+# 
+# psd_res_blocks %>% filter(n<4)
+
 # Saving out pink&white noise corrected spectral results
 save(psd_cor_res, file = "../output/psd-cor-res.rda")
 write_csv(psd_cor_res, file = "../output/psd-cor-res.csv")
+rm(psd_cor_res) # removes from memory
+gc() # garbage collection
 
 # Cleans work space ----
 rm(
   chan_locs,
-  psd_res,
-  spec_res,
   stim_freqs,
   stim_spectra,
   triggers,
@@ -290,9 +368,6 @@ rm(
   beta,
   delta,
   theta,
-  cog_res,
-  iaf_res,
-  paf_res,
   stim_cog,
   stim_iaf,
   stim_paf,
@@ -301,9 +376,10 @@ rm(
   freq_bins,
   n_points,
   pwn_freqs,
-  dB_res,
-  psd_cor_res,
   stim_freqvec,
   stim_psd,
   stim_psd_cor
 )
+
+# play sound to know that the script is finished
+beep(2)

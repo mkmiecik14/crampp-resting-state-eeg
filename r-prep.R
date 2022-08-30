@@ -37,3 +37,5 @@ library(patchwork)
 library(ghibli)
 
 rdgy_pal <-  brewer.pal(11, "RdGy")
+
+library(beepr) # to play sounds when necessary

@@ -5,6 +5,7 @@
 # Purpose: making sure that data are looking good
 
 source("r-prep.R") # preps R workspace
+source("topo_tools.R") # for topo plotting tools
 
 ###########################
 #                         #
@@ -15,17 +16,39 @@ source("r-prep.R") # preps R workspace
 # Loads data
 load("../output/dB-res.rda")
 
+# building in parallel processing: https://byuistats.github.io/M335/parallel_furrr.html
+library(furrr); library(tictoc)
+no_cores <- availableCores() - 1
+plan(multicore, workers = no_cores)
+
+test <- dB_res %>% split(.$ss)
+test %>% future_map(~filter(.x, complete.cases(.))) # THIS WORKS!
+
+test2 <- 
+  test %>%
+  future_map(
+    ~filter(complete.cases(.x$psd)) %>% # removes missing data
+    group_by(ss, eyes, elec, freq, band) %>%
+    summarise(m = mean(psd), n = n()) %>%
+    ungroup()
+    )
+
+
 # collapses across block (subject-wise summary)
 dB_eyes_open_closed_ss <- 
   dB_res %>%
+  filter(complete.cases(psd)) %>% # removes missing data
   group_by(ss, eyes, elec, freq, band) %>%
   summarise(m = mean(psd), n = n()) %>%
   ungroup()
 
+# Removing objects not used anymore for speed
+rm(dB_res); gc();
+
 # collapses across block (group-wise summary)
 dB_eyes_open_closed_sum <- 
   dB_eyes_open_closed_ss %>%
-  filter(complete.cases(.)) %>%
+  filter(complete.cases(m)) %>%
   group_by(eyes, elec, freq, band) %>%
   summarise(
     M = mean(m),
@@ -67,9 +90,13 @@ load("../output/psd-res.rda")
 # collapses across block (subject-wise summary)
 psd_eyes_open_closed_ss <- 
   psd_res %>%
+  filter(complete.cases(psd)) %>%
   group_by(ss, eyes, elec, freq, band) %>%
   summarise(m = mean(psd), n = n()) %>%
   ungroup()
+
+# Removing objects not used anymore for speed
+rm(psd_res); gc();
 
 # collapses across block (group-wise summary)
 psd_eyes_open_closed_sum <- 
@@ -95,7 +122,7 @@ ggplot(
   geom_line() +
   geom_vline(xintercept = 12, color = rdgy_pal[8], linetype = 2) +
   scale_x_continuous(limits = c(0, 25)) +
-  scale_y_continuous(limits = c(0, .1)) +
+  scale_y_continuous(limits = c(0, .5)) +
   theme_bw() +
   scale_color_manual(values = c(rdgy_pal[3], rdgy_pal[11])) +
   scale_fill_manual(values = c(rdgy_pal[3], rdgy_pal[11])) +
