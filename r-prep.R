@@ -39,3 +39,7 @@ library(ghibli)
 rdgy_pal <-  brewer.pal(11, "RdGy")
 
 library(beepr) # to play sounds when necessary
+
+# Parallel processing:
+# https://byuistats.github.io/M335/parallel_furrr.html
+library(furrr); library(tictoc)

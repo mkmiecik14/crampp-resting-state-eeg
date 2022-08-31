@@ -7,6 +7,10 @@
 source("r-prep.R") # preps R workspace
 source("topo_tools.R") # for topo plotting tools
 
+# parallel processing settings 
+no_cores <- availableCores() - 1 # leave one core for background processing
+plan(multicore, workers = no_cores) # plans the cores
+
 ###########################
 #                         #
 # BROADBAND SPECTRA in dB #
@@ -16,31 +20,15 @@ source("topo_tools.R") # for topo plotting tools
 # Loads data
 load("../output/dB-res.rda")
 
-# building in parallel processing: https://byuistats.github.io/M335/parallel_furrr.html
-library(furrr); library(tictoc)
-no_cores <- availableCores() - 1
-plan(multicore, workers = no_cores)
-
-test <- dB_res %>% split(.$ss)
-test %>% future_map(~filter(.x, complete.cases(.))) # THIS WORKS!
-
-test2 <- 
-  test %>%
-  future_map(
-    ~filter(complete.cases(.x$psd)) %>% # removes missing data
-    group_by(ss, eyes, elec, freq, band) %>%
-    summarise(m = mean(psd), n = n()) %>%
-    ungroup()
-    )
-
-
-# collapses across block (subject-wise summary)
 dB_eyes_open_closed_ss <- 
-  dB_res %>%
-  filter(complete.cases(psd)) %>% # removes missing data
-  group_by(ss, eyes, elec, freq, band) %>%
-  summarise(m = mean(psd), n = n()) %>%
-  ungroup()
+  dB_res %>% 
+  split(.$ss) %>%
+  future_map_dfr(
+    ~filter(.x, complete.cases(.)) %>%
+      group_by(ss, eyes, elec, freq, band) %>%
+      summarise(m = mean(psd), n = n()) %>%
+      ungroup()
+    )
 
 # Removing objects not used anymore for speed
 rm(dB_res); gc();
