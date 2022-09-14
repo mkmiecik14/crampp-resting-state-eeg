@@ -54,6 +54,7 @@ arm1_annuals <-
   )
 # parses .$content
 arm1_annuals_parsed <- content(arm1_annuals, as = "parsed")
+beep(2) # plays noise to signal progress
 
 # Trying to get time stamps of assessment visit
 # pulls all data bc why not
@@ -77,6 +78,7 @@ arm1_avisit1_api <-
   )
 # parses .$content
 arm1_avisit1_api_parsed <- content(arm1_avisit1_api, as = "parsed")
+beep(2) # plays noise to signal progress
 
 # SCREEN VISIT DATA
 arm1_screenvisit_api <- 
@@ -98,6 +100,7 @@ arm1_screenvisit_api <-
   )
 # parses .$content
 arm1_screenvisit_api_parsed <- content(arm1_screenvisit_api, as = "parsed")
+beep(2) # plays noise to signal progress
 
 # NON-STANDARD FOLLOWUP
 # Some participants were given original questionnaires at year 1 followup
@@ -121,6 +124,7 @@ arm1_year1_followup <-
   )
 # parses .$content
 arm1_year1_followup_parsed <- content(arm1_year1_followup, as = "parsed")
+beep(2) # plays noise to signal progress
 
 
 #########################################
@@ -148,6 +152,7 @@ arm2_annuals <-
   )
 # parses .$content
 arm2_annuals_parsed <- content(arm2_annuals, as = "parsed")
+beep(2) # plays noise to signal progress
 
 # Trying to get time stamps of assessment visit
 # pulls all avisit 1 data bc why not
@@ -171,6 +176,7 @@ arm2_avisit1_api <-
   )
 # parses .$content
 arm2_avisit1_api_parsed <- content(arm2_avisit1_api, as = "parsed")
+beep(2) # plays noise to signal progress
 
 # SCREEN VISIT DATA
 arm2_screenvisit_api <- 
@@ -193,7 +199,7 @@ arm2_screenvisit_api <-
   )
 # parses .$content
 arm2_screenvisit_api_parsed <- content(arm2_screenvisit_api, as = "parsed")
-
+beep(2) # plays noise to signal progress
 
 #######################################
 #                                     #
@@ -220,6 +226,7 @@ short_annuals <-
   )
 # parses .$content
 short_annuals_parsed <- content(short_annuals, as = "parsed")
+beep(2) # plays noise to signal progress
 
 # Saves out API data - - - -
 
@@ -241,6 +248,8 @@ save(arm2_screenvisit_api_parsed, file = "../output/arm2_screenvisit_api_parsed.
 
 # SHORTENED ANNUALS DATA
 save(short_annuals_parsed, file = "../output/short_annuals_parsed.RData")
+
+beep(3) # plays noise to signal progress
 
 # Cleaning script objects - - - -
 rm(
