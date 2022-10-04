@@ -1,4 +1,4 @@
-# Analysis 1 - Analyzing Individual Alpha Frequency (IAF) via global peak#
+# Analysis 1 - Analyzing Individual Alpha Frequency (IAF) via global peak
 # picking and center of gravity estimates
 # Matt Kmiecik
 # Started 22 AUGUST 2022
@@ -161,4 +161,178 @@ check_model(mod_2_cog)
 # Model comparison
 anova(mod_1_cog, mod_2_cog)
 
+#######
+#     #
+# MMH #
+#     #
+#######
 
+# Looking at the relationship between peak alpha and MMH
+
+# Loads in the principal components from the MMH paper
+load("../data/mmh-res.RData")
+
+# simplifies row-wise factor scores
+fi <- 
+  as_tibble(pca_res$Fixed.Data$ExPosition.Data$fi, rownames = "ss") %>%
+  mutate(ss = as.numeric(ss))
+
+# collapses across block
+iaf_res_long_ss <- 
+  iaf_res_long %>%
+  group_by(ss, eyes, name) %>%
+  summarise(m = mean(value), n = n()) %>%
+  ungroup()
+
+# wide format + pcs
+iaf_res_long_ss_pcs <-
+  iaf_res_long_ss %>% 
+  pivot_wider(id_cols = ss, names_from = c(name, eyes), values_from = m) %>%
+  left_join(., fi, by = "ss") %>%
+  select(ss:V3) %>%
+  rename(mmh = V1, ppt_sr = V2, bladder_hyper = V3)
+
+iaf_res_long_ss_pcs %>% filter(complete.cases(.))
+
+# Zero order correlations
+# Computes bootstrapped correlations (seed was set earlier in script)
+iaf_cor_res <-
+  psych::corr.test(
+    iaf_res_long_ss_pcs %>% select(-ss),
+    use = "pairwise",
+    method = "pearson", 
+    adjust = "none",
+    ci = TRUE,
+    minlength = 100 # extends the abbreviations
+  )
+iaf_cor_res$ci # the results
+
+# correlations into df
+iaf_cor_res_ci <-
+  as_tibble(iaf_cor_res$ci, rownames = "meas") %>%
+  separate(meas, into = c("V1", "V2"), sep = "-")
+
+# simplifies for plotting
+iaf_cor_res_ci_simple <- 
+  iaf_cor_res_ci %>% 
+  filter(V2 %in% c("mmh", "ppt_sr", "bladder_hyper")) %>%
+  filter(V1 %nin% c("mmh", "ppt_sr", "bladder_hyper")) %>%
+  mutate(V2 = fct_relevel(V2, c("mmh", "ppt_sr", "bladder_hyper")))
+
+# correlation plot
+ggplot(iaf_cor_res_ci_simple, aes(V2, r)) +
+  geom_hline(yintercept = 0, linetype = 2, color = "grey") +
+  geom_point() +
+  geom_errorbar(aes(ymin = lower, ymax = upper), width = .2) +
+  coord_cartesian(ylim = c(-1, 1)) +
+  scale_y_continuous(breaks = seq(-1, 1, .2), minor_breaks = NULL) +
+  labs(x = "PCs", caption = "Error bars are bootstrapped 95% CIs.") +
+  theme_bw() +
+  facet_wrap(~V1, nrow = 1)
+
+# Linear Mixed Modeling - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+
+# block-wise data with principal components
+iaf_res_long_pcs <- 
+  iaf_res_long %>% 
+  left_join(., fi, by = "ss") %>%
+  rename(mmh = V1, ppt_sr = V2, bladder_hyper = V3)
+
+# contrasts are already set
+contrasts(iaf_res_long_pcs$eyes)
+
+# PEAK ALPHA FREQUENCY (via peak picking) - - - - -
+
+# Minimal model
+mod_1_paf_pcs <- 
+  lmer(
+    value ~ 1 + mmh*block_mc*eyes + ppt_sr*block_mc*eyes + bladder_hyper*block_mc*eyes + (1 | ss), 
+    data = iaf_res_long_pcs %>% filter(name == "paf"),
+    REML = TRUE,
+    control = lmerControl(optimizer = "bobyqa")
+  )
+summary(mod_1_paf_pcs)
+check_model(mod_1_paf_pcs)
+
+# Plots interaction
+interactions::interact_plot(
+  mod_1_paf_pcs, 
+  pred = mmh, 
+  modx = eyes, 
+  plot.points = TRUE
+)
+
+mod_2_paf_pcs <- 
+  lmer(
+    value ~ 1 + mmh*block_mc*eyes + ppt_sr*block_mc*eyes + bladder_hyper*block_mc*eyes + (1 + block_mc + eyes | ss), 
+    data = iaf_res_long_pcs %>% filter(name == "paf"),
+    REML = TRUE,
+    control = lmerControl(optimizer = "bobyqa")
+  )
+summary(mod_2_paf_pcs)
+check_model(mod_2_paf_pcs)
+
+mod_3_paf_pcs <- 
+  lmer(
+    value ~ 1 + mmh*block_mc*eyes + ppt_sr*block_mc*eyes + bladder_hyper*block_mc*eyes + (1 + block_mc*eyes | ss), 
+    data = iaf_res_long_pcs %>% filter(name == "paf"),
+    REML = TRUE,
+    control = lmerControl(optimizer = "bobyqa")
+  )
+summary(mod_3_paf_pcs)
+check_model(mod_3_paf_pcs)
+
+# Plots interaction
+interactions::interact_plot(
+  mod_1_paf_pcs, 
+  pred = block_mc, 
+  modx = ppt_sr, 
+  plot.points = TRUE
+)
+
+# anova of models
+anova(mod_1_paf_pcs, mod_2_paf_pcs, mod_3_paf_pcs)
+
+# CENTER OF GRAVITY - - - - - 
+
+# Minimal model
+mod_1_cog_pcs <- 
+  lmer(
+    value ~ 1 + mmh*block_mc*eyes + ppt_sr*block_mc*eyes + bladder_hyper*block_mc*eyes + (1 | ss), 
+    data = iaf_res_long_pcs %>% filter(name == "cog"),
+    REML = TRUE,
+    control = lmerControl(optimizer = "bobyqa")
+  )
+summary(mod_1_cog_pcs)
+check_model(mod_1_cog_pcs)
+
+mod_2_cog_pcs <- 
+  lmer(
+    value ~ 1 + mmh*block_mc*eyes + ppt_sr*block_mc*eyes + bladder_hyper*block_mc*eyes + (1 + block_mc + eyes | ss), 
+    data = iaf_res_long_pcs %>% filter(name == "cog"),
+    REML = TRUE,
+    control = lmerControl(optimizer = "bobyqa")
+  )
+summary(mod_2_cog_pcs)
+check_model(mod_2_cog_pcs)
+
+mod_3_cog_pcs <- 
+  lmer(
+    value ~ 1 + mmh*block_mc*eyes + ppt_sr*block_mc*eyes + bladder_hyper*block_mc*eyes + (1 + block_mc*eyes | ss), 
+    data = iaf_res_long_pcs %>% filter(name == "cog"),
+    REML = TRUE,
+    control = lmerControl(optimizer = "bobyqa")
+  )
+summary(mod_3_cog_pcs)
+check_model(mod_3_cog_pcs)
+
+# Plots interaction
+interactions::interact_plot(
+  mod_1_cog_pcs, 
+  pred = block_mc, 
+  modx = ppt_sr, 
+  plot.points = TRUE
+)
+
+# anova of models
+anova(mod_1_cog_pcs, mod_2_cog_pcs, mod_3_cog_pcs)
